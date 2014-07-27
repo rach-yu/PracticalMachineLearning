@@ -1,0 +1,66 @@
+Prediction Assignment Writeup
+========================================================
+Preparation:
+   set the working directory
+   load the packages in need
+   load the data
+```{r}
+setwd("C:\\Users\\rach-yu\\Desktop")
+library(caret)
+library(randomForest)
+library(RANN)
+pml_training <- read.csv("pml-training.csv", row.names=1)
+pml_testing <- read.csv("pml-testing.csv", row.names=1)
+head(pml_training) 
+dim(pml_training)
+```
+
+
+Data Splitting:
+```{r}
+set.seed(123)
+inTrain <- createDataPartition(y=pml_training$classe, list=FALSE, p=0.7)
+training <- pml_training[inTrain,]
+validation <- pml_training[-inTrain,]
+```
+
+PreProcess:
+```{r}
+index = which(lapply(pml_training,class) %in% c('numeric') )
+train <- training[,index]
+valid <- validation[,index]
+
+preProc <- preProcess(train,method=c("knnImpute"))
+training <- cbind(training$classe,predict(preProc,train))
+validation <- cbind(validation$classe, predict(preProc,valid))
+names(training)[1] <- "classe"
+names(validation)[1] <- "classe"
+```
+
+Model Validation & Errors Estimation:
+```{r}
+rfmodel <- randomForest(classe~.,training)
+
+#in-sample accuracy
+confusionMatrix(training$classe,predict(rfmodel, training))
+
+#out-of-sample accuracy
+confusionMatrix(validation$classe,predict(rfmodel, validation))
+```
+
+
+Model Execution:
+```{r}
+testing <- predict(preProc, pml_testing[,index])
+
+answers <- predict(rfmodel, testing)
+
+pml_write_files = function(x){
+    n = length(x)
+    for(i in 1:n){
+        filename = paste0("problem_id_",i,".txt")
+        write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+    }
+}
+pml_write_files(answers)
+```
